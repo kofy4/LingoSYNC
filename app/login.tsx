@@ -2,6 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import {
   Dimensions,
+  SafeAreaView,
   StyleSheet,
   Text,
   TextInput,
@@ -12,7 +13,7 @@ import {
 export default function Login() {
   const router = useRouter();
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       <Text style={styles.title}>Login</Text>
       <View style={styles.form}>
         <Text style={styles.label}>Email</Text>
@@ -28,7 +29,10 @@ export default function Login() {
           placeholderTextColor="#bbb"
           secureTextEntry
         />
-        <TouchableOpacity style={styles.loginButton}>
+        <TouchableOpacity
+          onPress={() => router.push("/language-setup")}
+          style={styles.loginButton}
+        >
           <Text style={styles.loginButtonText}>Login</Text>
         </TouchableOpacity>
         <Text style={styles.terms}>
@@ -56,7 +60,7 @@ export default function Login() {
         By logging in, you agree to our{" "}
         <Text style={styles.link}>Terms of Service</Text>
       </Text>
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -65,13 +69,11 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#fff",
-    paddingTop: 40,
     alignItems: "center",
   },
   title: {
     fontSize: 28,
     fontWeight: "500",
-    marginTop: 60,
     marginBottom: 32,
     color: "#444",
     textAlign: "center",

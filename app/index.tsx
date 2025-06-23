@@ -2,6 +2,7 @@ import { useRouter } from "expo-router";
 import {
   Dimensions,
   Image,
+  SafeAreaView,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -11,7 +12,7 @@ import {
 export default function Index() {
   const router = useRouter();
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       <Text style={styles.logo}>LingoSYNC</Text>
       <Text style={styles.title}>Unlock New Worlds</Text>
       <Text style={styles.subtitle}>
@@ -29,7 +30,7 @@ export default function Index() {
       >
         <Text style={styles.buttonText}>Get Started</Text>
       </TouchableOpacity>
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -39,14 +40,12 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#fff",
     alignItems: "center",
-    paddingTop: 60,
   },
   logo: {
     fontSize: 32,
     fontWeight: "bold",
     color: "#757BFD",
     marginBottom: 16,
-    marginTop: 16,
   },
   title: {
     fontSize: 24,
