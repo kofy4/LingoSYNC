@@ -19,7 +19,7 @@ export default function Index() {
         Learn languages, connect with cultures.
       </Text>
       <Image
-        source={require("../assets/images/partial-react-logo.png")}
+        source={require("../assets/images/home-image.png")}
         style={styles.illustration}
         resizeMode="cover"
       />
@@ -62,8 +62,11 @@ const styles = StyleSheet.create({
   },
   illustration: {
     width: width,
-    height: 120,
+    height: 250,
     marginBottom: 24,
+    paddingHorizontal: 10,
+    borderRadius: 10,
+    marginTop: 40,
   },
   button: {
     backgroundColor: "#757BFD",

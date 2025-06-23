@@ -72,14 +72,7 @@ const LanguageSetup = () => {
           <Ionicons name="chevron-back" size={24} color="#fff" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>LingoSYNC Setup</Text>
-        <View style={styles.headerRight}>
-          <TouchableOpacity style={styles.headerIcon}>
-            <Ionicons name="notifications" size={24} color="#fff" />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.profileIcon}>
-            <Ionicons name="person-circle" size={32} color="#fff" />
-          </TouchableOpacity>
-        </View>
+        <View style={styles.headerRight}></View>
       </View>
 
       <ScrollView
@@ -187,7 +180,7 @@ const LanguageSetup = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#f8f9fa",
+    backgroundColor: "#fff",
   },
   header: {
     flexDirection: "row",
