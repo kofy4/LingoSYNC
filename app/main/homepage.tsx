@@ -1,7 +1,8 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
-import React, { useState } from "react";
+import { useFocusEffect, useRouter } from "expo-router";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
+  AppState,
   Dimensions,
   SafeAreaView,
   ScrollView,
@@ -10,18 +11,85 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { StorageService } from "../utils/StorageService";
 
 const { width } = Dimensions.get("window");
 
 const Homepage = () => {
   const router = useRouter();
   const [selectedLevel, setSelectedLevel] = useState("Beginner");
-
-  const progressStats = {
+  const [stats, setStats] = useState({
     streak: 0,
-    lessonsCompleted: 0,
-    totalLessons: 30,
-  };
+    hoursPracticed: 0,
+    wordsLearned: 0,
+  });
+
+  const appState = useRef(AppState.currentState);
+  const timeInApp = useRef(0);
+
+  const fetchStats = useCallback(async () => {
+    const streak = await StorageService.getStreak();
+    const hoursPracticed = await StorageService.getHoursPracticed();
+    const learnedWords = await StorageService.getLearnedWords();
+    setStats({
+      streak,
+      hoursPracticed,
+      wordsLearned: learnedWords.length,
+    });
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchStats();
+    }, [fetchStats])
+  );
+
+  useEffect(() => {
+    const checkStreak = async () => {
+      const today = new Date().toDateString();
+      const lastLogin = await StorageService.getLastLogin();
+      const streak = await StorageService.getStreak();
+
+      if (lastLogin !== today) {
+        const yesterday = new Date();
+        yesterday.setDate(yesterday.getDate() - 1);
+
+        if (lastLogin === yesterday.toDateString()) {
+          await StorageService.setStreak(streak + 1);
+        } else {
+          await StorageService.setStreak(1);
+        }
+        await StorageService.setLastLogin(today);
+      }
+    };
+
+    checkStreak();
+
+    const subscription = AppState.addEventListener("change", (nextAppState) => {
+      if (
+        appState.current.match(/inactive|background/) &&
+        nextAppState === "active"
+      ) {
+        checkStreak();
+      }
+      appState.current = nextAppState;
+    });
+
+    const timer = setInterval(() => {
+      timeInApp.current += 1;
+      if (timeInApp.current >= 3600) {
+        StorageService.addHourPracticed().then(() => {
+          fetchStats();
+        });
+        timeInApp.current = 0;
+      }
+    }, 1000);
+
+    return () => {
+      subscription.remove();
+      clearInterval(timer);
+    };
+  }, [fetchStats]);
 
   const quickAccessItems = [
     {
@@ -42,7 +110,12 @@ const Homepage = () => {
 
   const proficiencyLevels = [
     { id: "beginner", name: "Beginner", unlocked: true },
-    { id: "intermediate", name: "Intermediate", unlocked: false },
+    {
+      id: "intermediate",
+      name: "Intermediate",
+      unlocked: false,
+      comingSoon: true,
+    },
   ];
 
   return (
@@ -68,18 +141,21 @@ const Homepage = () => {
           <Text style={styles.sectionTitle}>Your Progress</Text>
           <View style={styles.progressContainer}>
             <View style={styles.progressCard}>
-              <Ionicons name="trophy" size={24} color="#FFD700" />
+              <Ionicons name="flame" size={24} color="#FFD700" />
               <Text style={styles.progressLabel}>Streak</Text>
+              <Text style={styles.progressValue}>{stats.streak} Day(s)</Text>
+            </View>
+            <View style={styles.progressCard}>
+              <Ionicons name="time" size={24} color="#757BFD" />
+              <Text style={styles.progressLabel}>Hours Practiced</Text>
               <Text style={styles.progressValue}>
-                {progressStats.streak} Day(s)
+                {stats.hoursPracticed.toFixed(1)}
               </Text>
             </View>
             <View style={styles.progressCard}>
-              <Ionicons name="book" size={24} color="#757BFD" />
-              <Text style={styles.progressLabel}>Lessons Completed</Text>
-              <Text style={styles.progressValue}>
-                {progressStats.lessonsCompleted}/{progressStats.totalLessons}
-              </Text>
+              <Ionicons name="book" size={24} color="#4CAF50" />
+              <Text style={styles.progressLabel}>Words Learned</Text>
+              <Text style={styles.progressValue}>{stats.wordsLearned}</Text>
             </View>
           </View>
         </View>
@@ -112,7 +188,14 @@ const Homepage = () => {
                     {level.name}
                   </Text>
                   {!level.unlocked && (
-                    <Ionicons name="lock-closed" size={16} color="#999" />
+                    <View style={styles.lockContainer}>
+                      {level.comingSoon && (
+                        <Text style={styles.comingSoonText}>
+                          Feature coming soon
+                        </Text>
+                      )}
+                      <Ionicons name="lock-closed" size={16} color="#999" />
+                    </View>
                   )}
                 </View>
               </TouchableOpacity>
@@ -150,18 +233,21 @@ const Homepage = () => {
 
         {/* Additional Learning Stats */}
         <View style={styles.section}>
+          <Text style={styles.sectionTitle}>All Time Stats</Text>
           <View style={styles.statsContainer}>
             <View style={styles.statItem}>
-              <Text style={styles.statNumber}>0</Text>
+              <Text style={styles.statNumber}>
+                {stats.hoursPracticed.toFixed(1)}
+              </Text>
               <Text style={styles.statLabel}>Hours Practiced</Text>
             </View>
             <View style={styles.statItem}>
-              <Text style={styles.statNumber}>0</Text>
+              <Text style={styles.statNumber}>{stats.wordsLearned}</Text>
               <Text style={styles.statLabel}>Words Learned</Text>
             </View>
             <View style={styles.statItem}>
-              <Text style={styles.statNumber}>0</Text>
-              <Text style={styles.statLabel}>Achievements</Text>
+              <Text style={styles.statNumber}>{stats.streak}</Text>
+              <Text style={styles.statLabel}>Day Streak</Text>
             </View>
           </View>
         </View>
@@ -283,6 +369,16 @@ const styles = StyleSheet.create({
   },
   proficiencyTextLocked: {
     color: "#999",
+  },
+  lockContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  comingSoonText: {
+    fontSize: 12,
+    color: "#999",
+    marginRight: 8,
+    fontStyle: "italic",
   },
   quickAccessContainer: {
     flexDirection: "row",

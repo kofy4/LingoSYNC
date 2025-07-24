@@ -1,7 +1,9 @@
 import { Ionicons } from "@expo/vector-icons";
-import React, { useRef, useState } from "react";
+import Groq from "groq-sdk";
+import React, { useEffect, useRef, useState } from "react";
 import {
   KeyboardAvoidingView,
+  Modal,
   Platform,
   SafeAreaView,
   ScrollView,
@@ -19,29 +21,71 @@ interface Message {
   timestamp: Date;
 }
 
+const languages = [
+  { code: "en", name: "English" },
+  { code: "fr", name: "French" },
+  { code: "de", name: "German" },
+  { code: "hi", name: "Hindi" },
+  { code: "it", name: "Italian" },
+  { code: "pt", name: "Portuguese" },
+  { code: "es", name: "Spanish" },
+  { code: "th", name: "Thai" },
+];
+
+const groq = new Groq({
+  apiKey: process.env.EXPO_PUBLIC_GROQ_API_KEY,
+});
+
 const Conversation = () => {
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: "1",
-      text: "Hello! I'm your AI language learning assistant. How can I help you practice today?",
-      isUser: false,
-      timestamp: new Date(),
-    },
-  ]);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState("");
   const [isTyping, setIsTyping] = useState(false);
+  const [selectedLanguage, setSelectedLanguage] = useState(languages[0]);
+  const [modalVisible, setModalVisible] = useState(false);
   const scrollViewRef = useRef<ScrollView>(null);
 
-  const mockAIResponses = [
-    "That's a great question! Let me help you with that.",
-    "I can see you're working hard on your language skills. Keep it up!",
-    "Would you like me to provide some pronunciation tips for that word?",
-    "Let's practice some common phrases. What topic interests you?",
-    "I noticed you're improving! Your vocabulary is expanding nicely.",
-    "Here's a helpful tip: try to practice a little bit every day.",
-    "Would you like to practice conversation in your target language?",
-    "That's correct! You're making excellent progress.",
-  ];
+  useEffect(() => {
+    const fetchGreeting = async () => {
+      setIsTyping(true);
+      try {
+        const completion = await groq.chat.completions.create({
+          messages: [
+            {
+              role: "system",
+              content: `You are a helpful language learning assistant. Your name is Lingo. You should be friendly and encouraging. Your goal is to help the user practice a new language. You can ask questions, provide corrections, and offer explanations. You should keep your responses concise and short and easy to understand. The user has selected ${selectedLanguage.name} as their language of choice. Please greet them in ${selectedLanguage.name}.`,
+            },
+            {
+              role: "user",
+              content: "Hello!",
+            },
+          ],
+          model: "llama3-8b-8192",
+        });
+
+        const aiResponse = completion.choices[0]?.message?.content || "";
+        const greetingMessage: Message = {
+          id: Date.now().toString() + "_greeting",
+          text: aiResponse,
+          isUser: false,
+          timestamp: new Date(),
+        };
+        setMessages([greetingMessage]);
+      } catch (error) {
+        console.error("Error fetching greeting:", error);
+        const errorMessage: Message = {
+          id: Date.now().toString() + "_error",
+          text: "Sorry, I'm having trouble connecting. Please try again later.",
+          isUser: false,
+          timestamp: new Date(),
+        };
+        setMessages([errorMessage]);
+      } finally {
+        setIsTyping(false);
+      }
+    };
+
+    fetchGreeting();
+  }, [selectedLanguage]);
 
   const sendMessage = async () => {
     if (inputText.trim() === "") return;
@@ -57,24 +101,51 @@ const Conversation = () => {
     setInputText("");
     setIsTyping(true);
 
-    // Simulate AI response delay
-    setTimeout(() => {
-      const randomResponse =
-        mockAIResponses[Math.floor(Math.random() * mockAIResponses.length)];
+    try {
+      const completion = await groq.chat.completions.create({
+        messages: [
+          {
+            role: "system",
+            content: `You are a helpful language learning assistant. Your name is Lingo. You should be friendly and encouraging. Your goal is to help the user practice a new language. You can ask questions, provide corrections, and offer explanations. You should keep your responses concise and short and easy to understand. The user is practicing ${selectedLanguage.name}.`,
+          },
+          {
+            role: "user",
+            content: userMessage.text,
+          },
+        ],
+        model: "llama3-8b-8192",
+      });
+
+      const aiResponse = completion.choices[0]?.message?.content || "";
       const aiMessage: Message = {
         id: Date.now().toString() + "_ai",
-        text: randomResponse,
+        text: aiResponse,
         isUser: false,
         timestamp: new Date(),
       };
       setMessages((prev) => [...prev, aiMessage]);
+    } catch (error) {
+      console.error("Error fetching AI response:", error);
+      const errorMessage: Message = {
+        id: Date.now().toString() + "_error",
+        text: "Sorry, I'm having trouble connecting. Please try again later.",
+        isUser: false,
+        timestamp: new Date(),
+      };
+      setMessages((prev) => [...prev, errorMessage]);
+    } finally {
       setIsTyping(false);
-    }, 1000 + Math.random() * 1500);
+    }
 
     // Auto-scroll to bottom
     setTimeout(() => {
       scrollViewRef.current?.scrollToEnd({ animated: true });
     }, 100);
+  };
+
+  const handleLanguageSelect = (language: (typeof languages)[0]) => {
+    setSelectedLanguage(language);
+    setModalVisible(false);
   };
 
   const formatTime = (date: Date) => {
@@ -130,11 +201,43 @@ const Conversation = () => {
       <View style={styles.header}>
         <Ionicons name="chatbox" size={24} color="#757BFD" />
         <Text style={styles.headerTitle}>Language Assistant</Text>
-        <View style={styles.statusIndicator}>
-          <View style={styles.onlineIndicator} />
-          <Text style={styles.statusText}>Online</Text>
-        </View>
+        <TouchableOpacity
+          style={styles.languageButton}
+          onPress={() => setModalVisible(true)}
+        >
+          <Text style={styles.languageButtonText}>{selectedLanguage.name}</Text>
+        </TouchableOpacity>
       </View>
+
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={modalVisible}
+        onRequestClose={() => {
+          setModalVisible(!modalVisible);
+        }}
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Select a Language</Text>
+            {languages.map((lang) => (
+              <TouchableOpacity
+                key={lang.code}
+                style={styles.languageOption}
+                onPress={() => handleLanguageSelect(lang)}
+              >
+                <Text style={styles.languageOptionText}>{lang.name}</Text>
+              </TouchableOpacity>
+            ))}
+            <TouchableOpacity
+              style={styles.closeButton}
+              onPress={() => setModalVisible(false)}
+            >
+              <Text style={styles.closeButtonText}>Close</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
 
       <KeyboardAvoidingView
         style={styles.chatContainer}
@@ -203,8 +306,16 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "600",
     color: "#333",
-    flex: 1,
-    marginLeft: 12,
+  },
+  languageButton: {
+    backgroundColor: "#f0f0f0",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 15,
+  },
+  languageButtonText: {
+    color: "#333",
+    fontWeight: "500",
   },
   statusIndicator: {
     flexDirection: "row",
@@ -324,6 +435,46 @@ const styles = StyleSheet.create({
   },
   sendButtonInactive: {
     backgroundColor: "#f0f0f0",
+  },
+  modalContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+  },
+  modalContent: {
+    width: "80%",
+    backgroundColor: "#fff",
+    borderRadius: 10,
+    padding: 20,
+    alignItems: "center",
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: "bold",
+    marginBottom: 20,
+  },
+  languageOption: {
+    width: "100%",
+    paddingVertical: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: "#eee",
+  },
+  languageOptionText: {
+    textAlign: "center",
+    fontSize: 18,
+    color: "#333",
+  },
+  closeButton: {
+    marginTop: 20,
+    backgroundColor: "#757BFD",
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 20,
+  },
+  closeButtonText: {
+    color: "#fff",
+    fontSize: 16,
   },
 });
 
